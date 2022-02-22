@@ -32,25 +32,27 @@ package GitObject {
         return $object;
     }
 
+    my %OBTYPE_INIT = (
+        'commit' => \&GitCommitObject::from_base,
+        'tree' => \&GitTreeObject::from_base,
+        'blob' => \&GitBlobObject::from_base,
+        'tag' => \&GitTagObject::from_base,
+    );
+
     sub from_raw {
         my $class = shift;
         my $raw = shift;
 
         my $object = _parse_base($raw);
 
-        if ($object->{type} eq 'commit') {
-            return GitCommitObject->from_base($object);
-        } elsif ($object->{type} eq 'tree') {
-            return GitTreeObject->from_base($object);
-        } elsif ($object->{type} eq 'blob') {
-            return GitBlobObject->from_base($object);
-        } elsif ($object->{type} eq 'tag') {
-            return GitTreeObject->from_base($object);
+        my $init = $OBTYPE_INIT{$object->{type}};
+
+        if (!defined($init)) {
+            warn('Unknown object type: ', $object->type);
+            return bless $object, $class;
         }
 
-        warn('Unknown object type: ', $object->type);
-
-        return bless $object, $class;
+        return $init->($object);
     }
 
     sub from_path {
@@ -67,6 +69,8 @@ package GitObject {
 }
 
 package GitCommitObject {
+    use Carp;
+
     sub _parse_payload{
         my $dataref = shift or die;
 
@@ -88,13 +92,10 @@ package GitCommitObject {
     }
 
     sub from_base {
-        my $class = shift;
         my $object = shift;
-        die if $object->{type} ne 'commit';
-
+        croak if $object->{type} ne 'commit';
         $object->{commit} = _parse_payload(\$object->{payload});
-
-        return bless $object, $class;
+        return bless $object;
     }
 
     sub say {
@@ -106,6 +107,8 @@ package GitCommitObject {
 
 
 package GitTreeObject {
+    use Carp;
+
     sub _parse_payload {
         my $dataref = shift;
         my $data = $$dataref;
@@ -133,13 +136,10 @@ package GitTreeObject {
     }
 
     sub from_base {
-        my $class = shift;
         my $object = shift;
-        die if $object->{type} ne 'tree';
-
+        croak if $object->{type} ne 'tree';
         $object->{objects} = _parse_payload(\$object->{payload});
-
-        return bless $object, $class;
+        return bless $object;
     }
 
     sub say {
@@ -153,12 +153,12 @@ package GitTreeObject {
 }
 
 package GitBlobObject {
-    sub from_base {
-        my $class = shift;
-        my $object = shift;
-        die if $object->{type} ne 'blob';
+    use Carp;
 
-        return bless $object, $class;
+    sub from_base {
+        my $object = shift;
+        croak if $object->{type} ne 'blob';
+        return bless $object;
     }
 
     sub say {
