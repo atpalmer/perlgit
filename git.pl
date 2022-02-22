@@ -6,21 +6,44 @@ use autodie;
 use lib 'lib';
 use GitObject;
 
-my $opts = Opts->parse('path=s');
+my $cmd = Command::create(\@ARGV);
+$cmd->(\@ARGV);
 
-my $object = GitObject->from_path($opts->{path});
 
-$object->say;
+package Command {
+    use Carp;
 
+    sub create {
+        my %COMMANDS = (
+            'readobj' => \&readobj,
+        );
+
+        my ($argv) = @_;
+        my $key = shift @$argv;
+        my $cmd = $COMMANDS{$key};
+        if (!defined($cmd)) {
+            croak qq<'$key' is not a valid command. Valid commands are >
+                . join(', ', map { qq('$_') } keys %COMMANDS);
+        }
+        return $cmd;
+    }
+
+    sub readobj {
+        my ($argv) = @_;
+        my $opts = Opts->parse($argv, 'path=s');
+        my $object = GitObject->from_path($opts->{path});
+        $object->say;
+    }
+}
 
 package Opts {
-    use Getopt::Long;
+    use Carp;
+    use Getopt::Long qw/GetOptionsFromArray/;
 
     sub parse {
-        my $class = shift;
-        my $config = shift;
+        my ($class, $argv, $config) = @_;
         my %opts = ();
-        GetOptions(\%opts, $config) or die 'Bad Arguments';
+        GetOptionsFromArray($argv, \%opts, $config) or die 'Bad Arguments';
 
         my %new;
         tie %new, $class, \%opts;
@@ -36,7 +59,7 @@ package Opts {
     sub FETCH {
         my $self = shift;
         my $key = shift;
-        die qq<No option "$key"> if not defined $self->{$key};
+        croak qq<No option "$key"> if not defined $self->{$key};
         return $self->{$key};
     }
 }
