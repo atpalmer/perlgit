@@ -5,13 +5,12 @@ use feature qw/say/;
 use GitFile;
 
 package Util {
-    sub say_hash {
+    sub str_hash {
         my $hashref = shift;
         my $keyref = shift;
-        for my $k (@$keyref) {
-            my $v = $hashref->{$k};
-            say "$k: $v";
-        }
+        return join '', map {
+            "$_: " . $hashref->{$_} . "\n";
+        } @$keyref;
     }
 }
 
@@ -62,9 +61,9 @@ package GitObject {
         return $class->from_raw($raw);
     }
 
-    sub say {
+    sub str {
         my $self = shift;
-        Util::say_hash($self, ['type', 'size']);
+        return Util::str_hash($self, ['type', 'size']);
     }
 }
 
@@ -98,10 +97,10 @@ package GitCommitObject {
         return bless $object;
     }
 
-    sub say {
+    sub str {
         my $self = shift;
-        GitObject::say($self);
-        Util::say_hash($self->{commit}, ['tree', 'parent', 'author', 'committer', 'body']);
+        return GitObject::str($self)
+            . Util::str_hash($self->{commit}, ['tree', 'parent', 'author', 'committer', 'body']);
     }
 }
 
@@ -142,13 +141,10 @@ package GitTreeObject {
         return bless $object;
     }
 
-    sub say {
+    sub str {
         my $self = shift;
-        GitObject::say($self);
-        for my $objref (@{$self->{objects}}) {
-            say 'object ref:';
-            Util::say_hash($objref, ['mode', 'name', 'hash']);
-        }
+        return GitObject::str($self)
+            .  join '', map { "object ref:\n" .  Util::str_hash($_, ['mode', 'name', 'hash']) } @{$self->{objects}};
     }
 }
 
@@ -161,10 +157,9 @@ package GitBlobObject {
         return bless $object;
     }
 
-    sub say {
+    sub str {
         my $self = shift;
-        GitObject::say($self);
-        say $self->{payload};
+        return GitObject::str($self) . $self->{payload};
     }
 }
 

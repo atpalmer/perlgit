@@ -32,7 +32,7 @@ package Command {
         my ($argv) = @_;
         my $opts = Opts->parse($argv, 'path=s');
         my $object = GitObject->from_path($opts->{path});
-        $object->say;
+        print $object->str;
     }
 }
 
