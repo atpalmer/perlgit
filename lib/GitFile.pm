@@ -1,9 +1,8 @@
 use strict;
 use warnings FATAL => qw/all/;
-use autodie;
-
 
 package GitFile;
+use autodie;
 
 use Compress::Zlib;
 
