@@ -17,6 +17,7 @@ package Command {
         my %COMMANDS = (
             'readobj' => \&readobj,
             'readhash' => \&readhash,
+            'headobj' => \&headobj,
         );
 
         my ($argv) = @_;
@@ -44,13 +45,38 @@ package Command {
         my $object = GitObject->from_path($obpath);
         print $object->str;
     }
+
+    sub headobj {
+        my ($argv) = @_;
+        my $opts = Opts->parse($argv, 'gitdir=s');
+        my $gitdir = GitDir->from_path($opts->{gitdir});
+        my $reffile = FileReader::readline($gitdir->headfile);
+        my $sha = $gitdir->follow_ref($reffile);
+        my $obpath = $gitdir->object($sha);
+        print qq(Reading object at "$obpath"\n);
+        my $object = GitObject->from_path($obpath);
+        print $object->str;
+    }
+}
+
+package FileReader {
+    use autodie;
+
+    sub readline {
+        my ($path) = @_;
+        open my $f, '<', $path;
+        my $line = <$f>;
+        close $f;
+        chomp $line;
+        return $line;
+    }
 }
 
 package GitDir {
     use Carp;
 
     sub _ensure_valid_dir {
-        my $path = shift;
+        my ($path) = @_;
 
         if (!-e $path) {
             croak "$path does not exist";
@@ -63,7 +89,7 @@ package GitDir {
     }
 
     sub _ensure_valid_file {
-        my $path = shift;
+        my ($path) = @_;
 
         if (!-e $path) {
             croak "$path does not exist";
@@ -73,6 +99,14 @@ package GitDir {
         }
 
         return $path;
+    }
+
+    sub _ensure_valid_sha {
+        my ($sha) = @_;
+        if ($sha !~ /^[a-f0-9]{40}$/) {
+            croak "$sha is not a valid SHA";
+        }
+        return $sha;
     }
 
     sub from_path {
@@ -91,6 +125,22 @@ package GitDir {
             croak "$sha is not a valid hash";
         }
         return _ensure_valid_file(join '/', $self->{ob_dir}, $dir, $obfile);
+    }
+
+    sub headfile {
+        my ($self) = @_;
+        return _ensure_valid_file(join '/', $self->{git_dir}, 'HEAD');
+    }
+
+    sub follow_ref {
+        my ($self, $ref) = @_;
+        while (my ($path) = $ref =~ /^ref: (.*)$/) {
+            last if (!defined($path));
+            $path = _ensure_valid_file(join '/', $self->{git_dir}, $path);
+            print qq(Following ref to "$path"\n);
+            $ref = FileReader::readline($path);
+        }
+        return _ensure_valid_sha($ref);
     }
 }
 
